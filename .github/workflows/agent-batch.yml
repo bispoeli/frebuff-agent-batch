@@ -118,8 +118,12 @@ for i, t in enumerate(tasks):
     print(f"   {i+1}. {t}")
 
 if not tasks:
-    print("❌ Nenhuma tarefa válida encontrada")
-    exit(1)
+    if event_name == 'issues':
+        print("❌ Nenhuma tarefa válida encontrada na issue")
+        exit(1)
+    else:
+        print("ℹ️  Nenhuma tarefa para processar (evento: ${{ github.event_name }}). Encerrando com sucesso.")
+        exit(0)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Configurações
@@ -314,11 +318,11 @@ PYEOF
       # 4. Comentário final na issue
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       - name: 💬 Comentar resumo na issue
-        if: always()
+        if: always() && github.event_name == 'issues'
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNumber = ${{ github.event.issue.number || 0 }};
+            const issueNumber = ${{ github.event.issue.number }};
             const body = `✅ **Fazenda de Agentes Concluída**\n\nProcessadas tarefas na issue #${issueNumber}.\n\nCada tarefa foi executada em uma **VM Linux isolada e descartável** via GitHub Actions.\n\nVerifique a guia "Actions" para ver os detalhes de execução de cada agente, incluindo branches criadas e Pull Requests abertos.\n\n---\n*Modelo: ${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }} (custo zero de LLM)*\n*Executor: GitHub Actions - Fazenda de Agentes OpenCode*`;
             github.rest.issues.createComment({
               issue_number: issueNumber,
