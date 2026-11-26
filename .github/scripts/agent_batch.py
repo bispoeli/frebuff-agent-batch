@@ -116,7 +116,7 @@ def main():
     # ═════════════════════════════════════════════════════════════════
     # 2. Configurações
     # ═════════════════════════════════════════════════════════════════
-    model = os.environ.get('INPUT_MODEL', 'opencode/deepseek-v4.1-flash-free')
+    model = os.environ.get('INPUT_MODEL', 'nvidia/nemotron-3-super-120b-a12b')
     max_parallel = int(os.environ.get('INPUT_PARALLEL', '5'))
     create_prs = os.environ.get('INPUT_CREATE_PRS', 'true').lower() == 'true'
     repo = os.environ.get('GITHUB_REPOSITORY', '')
