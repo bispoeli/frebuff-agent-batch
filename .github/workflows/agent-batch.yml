@@ -20,9 +20,53 @@ permissions:
   pull-requests: write
 
 jobs:
+  parse-tasks:
+    runs-on: ubuntu-latest
+    outputs:
+      tasks: ${{ steps.parse.outputs.tasks }}
+      task_count: ${{ steps.parse.outputs.task_count }}
+      issue_number: ${{ steps.parse.outputs.issue_number }}
+    steps:
+      - name: Parse tasks from issue
+        id: parse
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_NUMBER=${{ github.event.issue.number }}
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          else
+            ISSUE_NUMBER=0
+            ISSUE_BODY="${{ github.event.inputs.tasks }}"
+          fi
+
+          # Extrair tarefas (linhas que começam com - ou *)
+          TASKS=$(echo "$ISSUE_BODY" | grep -E '^[-*] ' | sed 's/^[-*] //' | grep -v '^$')
+          TASK_COUNT=$(echo "$ISSUE_BODY" | grep -cE '^[-*] ' || echo 0)
+
+          # Gerar array de índices para o matrix
+          INDICES="["
+          for i in $(seq 0 $((TASK_COUNT - 1))); do
+            if [ $i -gt 0 ]; then INDICES+=","; fi
+            INDICES+="$i"
+          done
+          INDICES+="]"
+
+          # Juntar tarefas com separador ||| para passar via output
+          TASKS_JOINED=$(echo "$TASKS" | tr '\n' '|||')
+
+          echo "tasks=$TASKS_JOINED" >> $GITHUB_OUTPUT
+          echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+          echo "task_indices=$INDICES" >> $GITHUB_OUTPUT
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+
   agent-batch:
+    needs: parse-tasks
+    if: needs.parse-tasks.outputs.task_count > 0
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      max-parallel: 5
+      matrix:
+        task_index: ${{ fromJson(needs.parse-tasks.outputs.task_indices) }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
@@ -34,6 +78,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -46,11 +91,15 @@ jobs:
           pip install hermes-agent
           hermes --version
 
-      - name: Install agent-batch plugin
+      - name: Get task text
+        id: get-task
         run: |
-          hermes plugins install nousresearch/hermes-agent-batch || true
-          hermes plugins enable agent-batch || true
-          hermes plugins list --plain --no-bundled | grep agent-batch || echo "agent-batch não listado (pode estar como built-in)"
+          TASKS="${{ needs.parse-tasks.outputs.tasks }}"
+          TASK_INDEX=${{ matrix.task_index }}
+          # Extrair a tarefa pelo índice (separado por |||)
+          TASK=$(echo "$TASKS" | tr '|||' '\n' | sed -n "${TASK_INDEX}p")
+          echo "task=$TASK" >> $GITHUB_OUTPUT
+          echo "Task $TASK_INDEX: $TASK"
 
       - name: Configure Hermes
         run: |
@@ -59,47 +108,62 @@ jobs:
             --model opencode/deepseek-v4.1-flash-free \
             --api-key "${{ secrets.OPENROUTER_API_KEY }}" || true
 
-      - name: Parse tasks from issue
-        id: parse-tasks
+      - name: Create branch
+        id: create-branch
         run: |
-          if [ "${{ github.event_name }}" = "issues" ]; then
-            ISSUE_NUMBER=${{ github.event.issue.number }}
-            ISSUE_BODY="${{ github.event.issue.body }}"
-          else
-            ISSUE_NUMBER=0
-            ISSUE_BODY="${{ github.event.inputs.tasks }}"
-          fi
+          BRANCH_NAME="agent-${{ matrix.task_index }}-$(echo '${{ steps.get-task.outputs.task }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-40)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Branch criada: $BRANCH_NAME"
 
-          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-          echo "Parsing tasks from issue #$ISSUE_NUMBER..."
-          echo "$ISSUE_BODY" > /tmp/tasks.txt
-
-          # Contar tarefas (linhas não vazias)
-          TASK_COUNT=$(grep -c '.' /tmp/tasks.txt || echo 0)
-          echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
-
-      - name: Run agent batch
-        if: steps.parse-tasks.outputs.task_count > 0
+      - name: Run Hermes agent
+        id: run-agent
         run: |
-          echo "Executando ${{ steps.parse-tasks.outputs.task_count }} tarefas em paralelo..."
-          hermes agent-batch run \
-            --tasks-file /tmp/tasks.txt \
-            --model "${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }}" \
-            --parallel \
-            --create-prs \
-            --repo ${{ github.repository }} \
-            --issue-number ${{ steps.parse-tasks.outputs.issue_number }}
+          TASK="${{ steps.get-task.outputs.task }}"
+          MODEL="${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }}"
+          echo "Executando tarefa: $TASK"
+          echo "Modelo: $MODEL"
+          
+          # Executar Hermes com a tarefa
+          hermes chat --no-restore-cwd --yolo -m "$MODEL" "$TASK" 2>&1 || true
 
-      - name: Comment on issue
-        if: always()
+      - name: Commit and push changes
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch }}"
+          git add -A
+          git commit -m "feat(agent-${{ matrix.task_index }}): ${{ steps.get-task.outputs.task }}" || echo "Sem mudanças para commitar"
+          git push origin "$BRANCH_NAME" || true
+
+      - name: Create Pull Request
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNumber = ${{ steps.parse-tasks.outputs.issue_number || 0 }};
-            const taskCount = ${{ steps.parse-tasks.outputs.task_count || 0 }};
-            const status = ${{ job.status }};
+            const branchName = `${{ steps.create-branch.outputs.branch }}`;
+            const task = `${{ steps.get-task.outputs.task }}`;
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🤖 Agent ${{ matrix.task_index }}: ${task}`,
+              head: branchName,
+              base: 'main',
+              body: `## Agente OpenCode\n\n**Tarefa:** ${task}\n\n**Agente:** ${{ matrix.task_index }}\n\nEste PR foi criado automaticamente pela fazenda de agentes OpenCode via GitHub Actions.\n\n---\n*Executado em VM isolada e descartável.*`
+            });
+            console.log(`PR criado: ${pr.data.html_url}`);
+
+  comment-on-issue:
+    needs: [parse-tasks, agent-batch]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ needs.parse-tasks.outputs.issue_number || 0 }};
+            const taskCount = ${{ needs.parse-tasks.outputs.task_count || 0 }};
+            const agentStatus = ${{ needs.agent-batch.result || 'skipped' }};
             const body = taskCount > 0
-              ? `✅ **Agent Batch concluído**\n\nProcessadas ${taskCount} tarefa(s) na issue #${issueNumber}.\nStatus: ${status}\n\nCada tarefa foi executada em uma VM isolada e um PR separado foi aberto (se aplicável).`
+              ? `✅ **Fazenda de Agentes Concluída**\n\nProcessadas ${taskCount} tarefa(s) na issue #${issueNumber}.\nStatus: ${agentStatus}\n\nCada tarefa foi executada em uma VM Linux isolada e descartável via GitHub Actions.\n\nBranches criadas:\n${Array.from({length: taskCount}, (_, i) => `- agent-\${i+1}`).join('\n')}\n\n---\n*Modelo: opencode/deepseek-v4.1-flash-free (custo zero de LLM)*`
               : `ℹ️ Nenhuma tarefa válida encontrada na issue #${issueNumber}.`;
             github.rest.issues.createComment({
               issue_number: issueNumber,
