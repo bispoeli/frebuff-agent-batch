@@ -1,0 +1,109 @@
+name: Agent Batch (Fazenda de Agentes OpenCode)
+
+on:
+  issues:
+    types: [opened, edited]
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: 'Lista de tarefas (uma por linha)'
+        required: false
+        default: ''
+      model:
+        description: 'Modelo a usar (default: opencode/deepseek-v4.1-flash-free)'
+        required: false
+        default: 'opencode/deepseek-v4.1-flash-free'
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  agent-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hermes Agent
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+          hermes --version
+
+      - name: Install agent-batch plugin
+        run: |
+          hermes plugins install nousresearch/hermes-agent-batch || true
+          hermes plugins enable agent-batch || true
+          hermes plugins list --plain --no-bundled | grep agent-batch || echo "agent-batch não listado (pode estar como built-in)"
+
+      - name: Configure Hermes
+        run: |
+          hermes setup --non-interactive \
+            --provider openrouter \
+            --model opencode/deepseek-v4.1-flash-free \
+            --api-key "${{ secrets.OPENROUTER_API_KEY }}" || true
+
+      - name: Parse tasks from issue
+        id: parse-tasks
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_NUMBER=${{ github.event.issue.number }}
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          else
+            ISSUE_NUMBER=0
+            ISSUE_BODY="${{ github.event.inputs.tasks }}"
+          fi
+
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+          echo "Parsing tasks from issue #$ISSUE_NUMBER..."
+          echo "$ISSUE_BODY" > /tmp/tasks.txt
+
+          # Contar tarefas (linhas não vazias)
+          TASK_COUNT=$(grep -c '.' /tmp/tasks.txt || echo 0)
+          echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Run agent batch
+        if: steps.parse-tasks.outputs.task_count > 0
+        run: |
+          echo "Executando ${{ steps.parse-tasks.outputs.task_count }} tarefas em paralelo..."
+          hermes agent-batch run \
+            --tasks-file /tmp/tasks.txt \
+            --model "${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }}" \
+            --parallel \
+            --create-prs \
+            --repo ${{ github.repository }} \
+            --issue-number ${{ steps.parse-tasks.outputs.issue_number }}
+
+      - name: Comment on issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.parse-tasks.outputs.issue_number || 0 }};
+            const taskCount = ${{ steps.parse-tasks.outputs.task_count || 0 }};
+            const status = ${{ job.status }};
+            const body = taskCount > 0
+              ? `✅ **Agent Batch concluído**\n\nProcessadas ${taskCount} tarefa(s) na issue #${issueNumber}.\nStatus: ${status}\n\nCada tarefa foi executada em uma VM isolada e um PR separado foi aberto (se aplicável).`
+              : `ℹ️ Nenhuma tarefa válida encontrada na issue #${issueNumber}.`;
+            github.rest.issues.createComment({
+              issue_number: issueNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
