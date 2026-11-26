@@ -165,7 +165,7 @@ def main():
             'model': model,
             'messages': messages,
             'temperature': 0.7,
-            'max_tokens': 4000
+            'max_tokens': 8000
         }).encode()
 
         req = Request(
@@ -180,7 +180,11 @@ def main():
         try:
             resp = urlopen(req, timeout=120)
             result = json.loads(resp.read())
-            return result['choices'][0]['message']['content']
+            choice = result['choices'][0]['message']
+            # Modelos de reasoning (ex: Nemotron 3.5) usam reasoning_content
+            # Modelos padrão usam content
+            content = choice.get('content') or choice.get('reasoning_content') or ''
+            return content
         except HTTPError as e:
             print(f"   ⚠️  LLM API error: {e.code} {e.read()[:200]}")
             return None
