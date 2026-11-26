@@ -10,9 +10,9 @@ name: Agent Batch (Fazenda de Agentes OpenCode)
         required: false
         default: ''
       model:
-        description: 'Modelo LLM (default: opencode/deepseek-v4.1-flash-free)'
+        description: 'Modelo LLM (default: nemotron-3-super-120b-a12b)'
         required: false
-        default: 'opencode/deepseek-v4.1-flash-free'
+        default: 'nemotron-3-super-120b-a12b'
       parallel:
         description: 'Número máximo de agentes simultâneos'
         required: false
