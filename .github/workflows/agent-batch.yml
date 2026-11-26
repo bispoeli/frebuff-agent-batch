@@ -74,7 +74,7 @@ jobs:
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          INPUT_MODEL: ${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }}
+          INPUT_MODEL: ${{ github.event.inputs.model || 'nemotron-3-super-120b-a12b' }}
           INPUT_PARALLEL: ${{ github.event.inputs.parallel || '5' }}
           INPUT_CREATE_PRS: ${{ github.event.inputs.create_prs || 'true' }}
         run: |
