@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Fazenda de Agentes - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="dashboard.js" defer></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-rocket"></i>
+                <h1>Fazenda de Agentes</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="abrirModalNovaIssue()">
+                    <i class="fas fa-plus"></i> Nova Issue
+                </button>
+                <button class="btn btn-outline" onclick="carregarDados()">
+                    <i class="fas fa-sync"></i> Atualizar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-total-tarefas">0</h3>
+                    <p>Tarefas Totais</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-concluidas">0</h3>
+                    <p>Concluídas</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-andamento">0</h3>
+                    <p>Em Andamento</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon error">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-falhas">0</h3>
+                    <p>Falhas</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon info">
+                    <i class="fas fa-github"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-prs">0</h3>
+                    <p>Pull Requests</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon info">
+                    <i class="fas fa-git-branch"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-branches">0</h3>
+                    <p>Branches</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container">
+        <div class="dashboard-grid">
+            
+            <!-- Issues Section -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-list"></i> Issues Recentes</h2>
+                    <a href="#" class="btn btn-small">Ver Todas</a>
+                </div>
+                <div class="card-body" id="issues-container">
+                    <div class="loading">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <span>Carregando issues...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Runs -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-play-circle"></i> Execuções Recentes</h2>
+                    <a href="#" class="btn btn-small">Ver Todas</a>
+                </div>
+                <div class="card-body" id="workflows-container">
+                    <div class="loading">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <span>Carregando execuções...</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Nova Issue -->
+    <div class="modal-overlay" id="modal-nova-issue">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Nova Issue - Fazenda de Agentes</h3>
+                <button class="btn-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nova-issue">
+                    <div class="form-group">
+                        <label>Título da Issue</label>
+                        <input type="text" id="issue-titulo" placeholder="Ex: Analisar XAUUSD no M5" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Tarefa</label>
+                        <select id="issue-pilar" required>
+                            <option value="trading">📈 Trading XAUUSD MT5</option>
+                            <option value="transcricao">🎬 Transcrição YouTube</option>
+                            <option value="app">📱 App/APK</option>
+                            <option value="deepseek">🧠 DeepSeek Gratuito</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo LLM</label>
+                        <select id="issue-modelo">
+                            <option value="nvidia/nemotron-3.5-lightning-30b-a3b">Nemotron 3.5 Lightning (NVIDIA)</option>
+                            <option value="opencode/deepseek-v4-flash-free">DeepSeek V4 Flash (Grátis)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tarefas (uma por linha, começando com -)</label>
+                        <textarea id="issue-tarefas" rows="6" placeholder="- Analisar XAUUSD no M5
+- Implementar sistema X
+- Corrigir bug Y" required></textarea>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label><input type="checkbox" checked> Criar PR automático para cada tarefa</label>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">Criar Issue</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <div class="toast-content">
+            <i class="fas fa-check-circle toast-icon"></i>
+            <span id="toast-msg">Operação realizada com sucesso!</span>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Fazenda de Agentes OpenCode - NVIDIA NIM + DeepSeek</p>
+        </div>
+    </footer>
+
+    <script>
+        // Configurações
+        const CONFIG = {
+            OWNER: 'eli', // Seus dados
+            REPO: 'frebuff-agent-batch',
+            API_BASE: 'https://api.github.com/repos/bispoeli/frebuff-agent-batch'
+        };
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarDados();
+            setupFormulario();
+        });
+
+        // Carregar dados
+        async function carregarDados() {
+            try {
+                await Promise.all([
+                    carregarIssues(),
+                    carregarWorkflows(),
+                    carregarEstatisticas()
+                ]);
+            } catch (erro) {
+                console.error('Erro ao carregar dados:', erro);
+                mostrarToast('Erro ao carregar dados', 'error');
+            }
+        }
+
+        // Carregar issues
+        async function carregarIssues() {
+            try {
+                const resposta = await fetch(`${CONFIG.API_BASE}/issues?state=all&per_page=20&sort=updated&direction=desc`, {
+                    headers: {
+                        'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!resposta.ok) throw new Error('Erro ao carregar issues');
+                
+                const issues = await resposta.json();
+                renderizarIssues(issues);
+            } catch (erro) {
+                console.error('Erro ao carregar issues:', erro);
+                document.getElementById('issues-container').innerHTML = `
+                    <div class="erro">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Não foi possível carregar as issues. Verifique o token do GitHub.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderizarIssues(issues) {
+            const container = document.getElementById('issues-container');
+            container.innerHTML = '';
+
+            if (issues.length === 0) {
+                container.innerHTML = '<div class="vazio">Nenhuma issue encontrada.</div>';
+                return;
+            }
+
+            issues.forEach(issue => {
+                const data = new Date(issue.created_at).toLocaleDateString('pt-BR');
+                const estado = issue.state === 'open' ? 'aberto' : 'fechado';
+                const iconeEstado = issue.state === 'open' ? 'fa-circle-open' : 'fa-circle-check';
+                
+                const item = document.createElement('div');
+                item.className = 'item-issue';
+                item.innerHTML = `
+                    <div class="info-issue">
+                        <span class="badge estado-${issue.state}">${issue.state === 'open' ? 'Aberto' : 'Fechado'}</span>
+                        <h4>${issue.title}</h4>
+                        <div class="meta-issue">
+                            <span><i class="fas fa-user"></i> ${issue.user.login}</span>
+                            <span><i class="fas fa-calendar"></i> ${data}</span>
+                            <span><i class="fas fa-comments"></i> ${issue.comments}</span>
+                        </div>
+                        <div class="etiquetas-issue">
+                            ${issue.labels.map(l => `<span class="etiqueta">${l.name}</span>`).join('')}
+                        </div>
+                    </div>
+                    <a href="${issue.html_url}" target="_blank" class="btn-link">Abrir no GitHub <i class="fas fa-external-link-alt"></i></a>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Carregar workflows
+        async function carregarWorkflows() {
+            try {
+                const resposta = await fetch(`${CONFIG.API_BASE}/actions/workflows`, {
+                    headers: {
+                        'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!resposta.ok) throw new Error('Erro ao carregar workflows');
+                
+                const data = await resposta.json();
+                renderizarWorkflows(data.workflows);
+            } catch (erro) {
+                console.error('Erro ao carregar workflows:', erro);
+            }
+        }
+
+        function renderizarWorkflows(workflows) {
+            // Renderizar workflows se necessário
+        }
+
+        // Carregar estatísticas
+        async function carregarEstatisticas() {
+            try {
+                const [issuesResp, prsResp] = await Promise.all([
+                    fetch(`${CONFIG.API_BASE}/issues?state=all&per_page=100`, {
+                        headers: {
+                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }),
+                    fetch(`${CONFIG.API_BASE}/pulls?state=all&per_page=100`, {
+                        headers: {
+                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    })
+                ]);
+
+                const issues = await resposta.json();
+                const prs = await prsResp.json();
+
+                document.getElementById('stat-total-tarefas').textContent = issues.length;
+                document.getElementById('stat-concluidas').textContent = issues.filter(i => i.state === 'closed').length;
+                document.getElementById('stat-andamento').textContent = issues.filter(i => i.state === 'open').length;
+                document.getElementById('stat-falhas').textContent = 0; // Pode calcular com base em falhas
+                document.getElementById('stat-prs').textContent = prs.length;
+                document.getElementById('stat-branches').textContent = issues.length; // Aproximação
+            } catch (erro) {
+                console.error('Erro ao carregar estatísticas:', erro);
+            }
+        }
+
+        // Formulário de nova issue
+        function setupFormulario() {
+            const form = document.getElementById('form-nova-issue');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const titulo = document.getElementById('issue-titulo').value;
+                const modelo = document.getElementById('issue-modelo').value;
+                const tarefasTexto = document.getElementById('issue-tarefas').value;
+                
+                const corpo = `## Tarefas\n${tarefasTexto}\n\n## Modelo\n${modelo}\n\n## Opções\n- [x] Criar PR automático para cada tarefa\n- [x] Usar contexto limpo`;
+                
+                try {
+                    const resposta = await fetch(`${CONFIG.API_BASE}/issues`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        },
+                        body: JSON.stringify({
+                            title: titulo,
+                            body: corpo
+                        })
+                    });
+                    
+                    if (resposta.ok) {
+                        mostrarToast('Issue criada com sucesso!');
+                        fecharModal();
+                        form.reset();
+                        carregarDados();
+                    } else {
+                        mostrarToast('Erro ao criar issue', 'error');
+                    }
+                } catch (erro) {
+                    mostrarToast('Erro ao criar issue', 'error');
+                }
+            });
+        }
+
+        // Modal
+        function abrirModalNovaIssue() {
+            document.getElementById('modal-nova-issue').style.display = 'block';
+        }
+
+        function fecharModal() {
+            document.getElementById('modal-nova-issue').style.display = 'none';
+        }
+
+        // Toast
+        function mostrarToast(mensagem, tipo = 'sucesso') {
+            const toast = document.getElementById('toast');
+            const texto = document.getElementById('toast-msg');
+            texto.textContent = mensagem;
+            toast.className = `toast mostrar ${tipo}`;
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
+        // Fechar modal ao clicar fora
+        document.getElementById('modal-nova-issue').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modal-nova-issue')) {
+                fecharModal();
+            }
+        });
+    </script>
+</body>
+</html>
