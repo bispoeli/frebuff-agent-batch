@@ -1,395 +1,267 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚀 Fazenda de Agentes - Dashboard</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="dashboard.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚀 Fazenda de Agentes - Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+body { background: #0f172a; color: #f1f5f9; min-height: 100vh; padding: 20px; }
+.container { max-width: 1400px; margin: 0 auto; }
+header { background: linear-gradient(135deg, #0f172a, #334155); padding: 2rem; border-radius: 12px; border: 1px solid #334155; margin-bottom: 2rem; }
+header h1 { font-size: 2rem; color: #38bdf8; margin-bottom: 0.5rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.stat-card { background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; text-align: center; }
+.stat-card h3 { font-size: 2.5rem; color: #38bdf8; margin-bottom: 0.5rem; }
+.stat-card p { color: #94a3b8; font-size: 0.9rem; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; margin-bottom: 1.5rem; padding: 1.5rem; }
+.card h3 { color: #f1f5f9; margin-bottom: 1rem; font-size: 1.125rem; }
+.btn { background: #2563eb; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; cursor: pointer; }
+.btn:hover { background: #1d4ed8; }
+.btn-secondary { background: #475569; }
+.btn-success { background: #166534; }
+.btn-success:hover { background: #15803d; }
+.alerta { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; color: #92400e; }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.5rem; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white; }
+.btn-submit { width: 100%; }
+</style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="logo">
-                <i class="fas fa-rocket"></i>
-                <h1>Fazenda de Agentes</h1>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-primary" onclick="abrirModalNovaIssue()">
-                    <i class="fas fa-plus"></i> Nova Issue
-                </button>
-                <button class="btn btn-outline" onclick="carregarDados()">
-                    <i class="fas fa-sync"></i> Atualizar
-                </button>
-            </div>
+<div class="container">
+<header>
+<h1>🚀 Fazenda de Agentes - OpenCode</h1>
+<p>Sistema de automação com NVIDIA NIM + OpenCode</p>
+</header>
+
+<div class="alerta">
+<strong>🔑 Configuração necessária:</strong> Adicione sua <strong>NVIDIA_API_KEY</strong> e <strong>GITHUB_TOKEN</strong> abaixo para ativar a fazenda.
+</div>
+
+<div class="card">
+<div class="card-header"><h2>🔑 Configuração da API</h2></div>
+<div class="card-body">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">NVIDIA API Key</div>
+<input type="password" id="nvidia-api-key" placeholder="nvapi-..." style="width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;">
+</div>
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">GitHub Token</div>
+<input type="password" id="github-token" placeholder="ghp_..." style="width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;">
+</div>
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">OpenRouter API Key</div>
+<input type="password" id="openrouter-api-key" placeholder="sk-or-..." style="width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;">
+</div>
+</div>
+<button class="btn btn-success btn-full" onclick="salvarChaves()">Salvar Configurações</button>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header"><h2><i class="fas fa-rocket"></i> Criar Nova Tarefa</h2></div>
+<div class="card-body">
+<form id="form-nova-tarefa">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+<label style="color: #94a3b8; font-size: 0.875rem;">Título da Issue</label>
+<input type="text" id="issue-titulo" placeholder="Ex: Analisar XAUUSD no M5" style="padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;">
+</div>
+<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+<label style="color: #94a3b8; font-size: 0.875rem;">Modelo</label>
+<select id="issue-modelo" style="padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;">
+<option value="nvidia/nemotron-3.5-lightning-30b-a3b">Nemotron 3.5 Lightning (NVIDIA)</option>
+<option value="opencode/deepseek-v4-flash-free">DeepSeek V4 Flash (Grátis)</option>
+</select>
+</div>
+</div>
+<div style="margin-bottom: 1rem;">
+<label style="display: block; color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.5rem;">Tarefas (uma por linha)</label>
+<textarea id="issue-tarefas" rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: white;" placeholder="- Analisar XAUUSD no M5
+- Implementar sistema de logs"></textarea>
+</div>
+<button type="submit" class="btn btn-success btn-full">Criar Issue na Fazenda</button>
+</form>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header"><h2><i class="fas fa-rocket"></i> Criar Rápido</h2></div>
+<div class="card-body">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px; text-align: center;">
+<div style="color: #94a3b8; font-size: 0.875rem;">Trading XAUUSD</div>
+<button class="btn btn-success btn-full" onclick="criarIssueRapida('Analisar XAUUSD no M5 com indicadores técnicos')">Criar Análise XAUUSD</button>
+</div>
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px; text-align: center;">
+<div style="color: #94a3b8; font-size: 0.875rem;">Transcrição YouTube</div>
+<button class="btn btn-success btn-full" onclick="criarIssueRapida('Transcrever vídeo do YouTube e gerar eBook HTML')">Criar Transcrição</button>
+</div>
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px; text-align: center;">
+<div style="color: #94a3b8; font-size: 0.875rem;">App/APK</div>
+<button class="btn btn-success btn-full" onclick="criarIssueRapida('Criar app de gestão financeira para bandas')">Criar App</button>
+</div>
+<div style="background: #1e293b; padding: 1.5rem; border-radius: 8px; text-align: center;">
+<div style="color: #94a3b8; font-size: 0.875rem;">DeepSeek Gratuito</div>
+<button class="btn btn-success btn-full" onclick="criarIssueRapida('Criar script Python para análise de dados')">Criar Código</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header"><h2><i class="fas fa-list"></i> Issues Recentes</h2></div>
+<div class="card-body">
+<div id="issues-container">
+<div style="color: #94a3b8; padding: 1rem; text-align: center;">Clique em "Criar Issue na Fazenda" para adicionar sua primeira tarefa.</div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-header"><h2><i class="fas fa-info-circle"></i> Informações do Sistema</h2></div>
+<div class="card-body">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+<div style="background: #1e293b; padding: 1rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">Provedor NVIDIA NIM</div>
+<div style="color: #f1f5f9; font-weight: 600;">nemotron-3.5-lightning-30b-a3b</div>
+</div>
+<div style="background: #1e293b; padding: 1rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">Plataforma</div>
+<div style="color: #f1f5f9; font-weight: 600;">GitHub Actions</div>
+</div>
+<div style="background: #1e293b; padding: 1rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">DeepSeek Gratuito</div>
+<div style="color: #f1f5f9; font-weight: 600;">opencode/deepseek-v4-flash-free</div>
+</div>
+<div style="background: #1e293b; padding: 1rem; border-radius: 8px;">
+<div style="color: #94a3b8; font-size: 0.875rem;">Modo Operação</div>
+<div style="color: #f1f5f9; font-weight: 600;">Máquina Local + GitHub</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// Configuracoes
+const CONFIG = {
+    OWNER: 'eli',
+    REPO: 'frebuff-agent-batch',
+    API_BASE: 'https://api.github.com/repos/bispoeli/frebuff-agent-batch',
+    GITHUB_TOKEN: ''
+};
+
+// Carregar dados
+async function carregarDados() {
+    try {
+        const resp = await fetch(`${CONFIG.API_BASE}/issues?state=all&per_page=50&sort=updated&direction=desc`, {
+            headers: {
+                'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+        if (!respostaOk(resposta)) throw new Error('Erro ao carregar issues');
+        const issues = await resp.json();
+        renderizarIssues(issues);
+    } catch (e) {
+        console.error('Erro:', e);
+    }
+}
+
+function respostaOk(res) {
+    return res.ok;
+}
+
+function renderizarIssues(issues) {
+    const container = document.getElementById('issues-container');
+    container.innerHTML = '';
+    if (issues.length === 0) {
+        container.innerHTML = '<div style="color: #94a3b8; padding: 2rem; text-align: center;">Nenhuma issue encontrada. Crie sua primeira tarefa acima.</div>';
+        return;
+    }
+    issues.forEach(issue => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 1rem; border-bottom: 1px solid #334155; margin-bottom: 0.5rem;';
+        div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span class="badge" style="background: ${issue.state === 'open' ? '#166534' : '#7f1d1d'}; color: ${issue.state === 'open' ? '#dcfce7' : '#fecae7'}; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem;">${issue.state === 'open' ? 'ABERTO' : 'FECHADO'}</span>
+            <span style="color: #94a3b8; font-size: 0.75rem;">#${issue.number}</span>
         </div>
-    </header>
+        <div style="font-weight: 600; color: #f1f5f9; margin-bottom: 0.25rem;">${issue.title}</div>
+        <div style="color: #94a3b8; font-size: 0.875rem;">Criado em: ${new Date(issue.created_at).toLocaleDateString('pt-BR')}</div>
+        `;
+        container.appendChild(div);
+    });
+}
 
-    <!-- Stats Cards -->
-    <div class="container">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-tasks"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-total-tarefas">0</h3>
-                    <p>Tarefas Totais</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon success">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-concluidas">0</h3>
-                    <p>Concluídas</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-andamento">0</h3>
-                    <p>Em Andamento</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon error">
-                    <i class="fas fa-times-circle"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-falhas">0</h3>
-                    <p>Falhas</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon info">
-                    <i class="fas fa-github"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-prs">0</h3>
-                    <p>Pull Requests</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon info">
-                    <i class="fas fa-git-branch"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="stat-branches">0</h3>
-                    <p>Branches</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <main class="container">
-        <div class="dashboard-grid">
-            
-            <!-- Issues Section -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-list"></i> Issues Recentes</h2>
-                    <a href="#" class="btn btn-small">Ver Todas</a>
-                </div>
-                <div class="card-body" id="issues-container">
-                    <div class="loading">
-                        <i class="fas fa-circle-notch fa-spin"></i>
-                        <span>Carregando issues...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Workflow Runs -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-play-circle"></i> Execuções Recentes</h2>
-                    <a href="#" class="btn btn-small">Ver Todas</a>
-                </div>
-                <div class="card-body" id="workflows-container">
-                    <div class="loading">
-                        <i class="fas fa-circle-notch fa-spin"></i>
-                        <span>Carregando execuções...</span>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
-    <!-- Modal Nova Issue -->
-    <div class="modal-overlay" id="modal-nova-issue">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Nova Issue - Fazenda de Agentes</h3>
-                <button class="btn-close" onclick="fecharModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="form-nova-issue">
-                    <div class="form-group">
-                        <label>Título da Issue</label>
-                        <input type="text" id="issue-titulo" placeholder="Ex: Analisar XAUUSD no M5" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Tipo de Tarefa</label>
-                        <select id="issue-pilar" required>
-                            <option value="trading">📈 Trading XAUUSD MT5</option>
-                            <option value="transcricao">🎬 Transcrição YouTube</option>
-                            <option value="app">📱 App/APK</option>
-                            <option value="deepseek">🧠 DeepSeek Gratuito</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Modelo LLM</label>
-                        <select id="issue-modelo">
-                            <option value="nvidia/nemotron-3.5-lightning-30b-a3b">Nemotron 3.5 Lightning (NVIDIA)</option>
-                            <option value="opencode/deepseek-v4-flash-free">DeepSeek V4 Flash (Grátis)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Tarefas (uma por linha, começando com -)</label>
-                        <textarea id="issue-tarefas" rows="6" placeholder="- Analisar XAUUSD no M5
-- Implementar sistema X
-- Corrigir bug Y" required></textarea>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <label><input type="checkbox" checked> Criar PR automático para cada tarefa</label>
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary btn-full">Criar Issue</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="toast">
-        <div class="toast-content">
-            <i class="fas fa-check-circle toast-icon"></i>
-            <span id="toast-msg">Operação realizada com sucesso!</span>
-        </div>
-    </div>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 Fazenda de Agentes OpenCode - NVIDIA NIM + DeepSeek</p>
-        </div>
-    </footer>
-
-    <script>
-        // Configurações
-        const CONFIG = {
-            OWNER: 'eli', // Seus dados
-            REPO: 'frebuff-agent-batch',
-            API_BASE: 'https://api.github.com/repos/bispoeli/frebuff-agent-batch'
-        };
-
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', () => {
+async function criarIssueRapida(tarefa) {
+    const corpo = `## Tarefas\n${tarefa}\n\n## Modelo\nnvidia/nemotron-3.5-lightning-30b-a3b\n\n## Opcoes\n- [x] Criar PR automatico para cada tarefa\n- [x] Usar contexto limpo`;
+    try {
+        const resposta = await fetch(`${CONFIG.API_BASE}/issues`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: `Automacao: ${tarefa.substring(0, 50)}`,
+                body: corpo,
+                labels: ['trading']
+            })
+        });
+        if (resposta.ok) {
+            alert('Issue criada com sucesso!');
             carregarDados();
-            setupFormulario();
+        } else {
+            alert('Erro ao criar issue');
+        }
+    } catch (e) {
+        alert('Erro de conexao: ' + e.message);
+    }
+}
+
+document.getElementById('form-nova-tarefa').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const titulo = document.getElementById('issue-titulo').value;
+    const modelo = document.getElementById('issue-modelo').value;
+    const tarefasTexto = document.getElementById('issue-tarefas').value;
+    if (!titulo || !tarefasTexto) {
+        alert('Preencha todos os campos!');
+        return;
+    }
+    const corpo = `## Tarefas\n${tarefasTexto}\n\n## Modelo\n${modelo}\n\n## Opcoes\n- [x] Criar PR automatico para cada tarefa\n- [x] Usar contexto limpo`;
+    try {
+        const resposta = await fetch(`${CONFIG.API_BASE}/issues`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: titulo,
+                body: corpo,
+                labels: ['trading']
+            })
         });
-
-        // Carregar dados
-        async function carregarDados() {
-            try {
-                await Promise.all([
-                    carregarIssues(),
-                    carregarWorkflows(),
-                    carregarEstatisticas()
-                ]);
-            } catch (erro) {
-                console.error('Erro ao carregar dados:', erro);
-                mostrarToast('Erro ao carregar dados', 'error');
-            }
+        if (resposta.ok) {
+            alert('Issue criada com sucesso!');
+            document.getElementById('form-nova-tarefa').reset();
+            carregarDados();
+        } else {
+            const err = await resposta.json();
+            alert('Erro: ' + (err.message || 'Erro desconhecido'));
         }
+    } catch (e) {
+        alert('Erro de conexao: ' + e.message);
+    }
+});
 
-        // Carregar issues
-        async function carregarIssues() {
-            try {
-                const resposta = await fetch(`${CONFIG.API_BASE}/issues?state=all&per_page=20&sort=updated&direction=desc`, {
-                    headers: {
-                        'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                
-                if (!resposta.ok) throw new Error('Erro ao carregar issues');
-                
-                const issues = await resposta.json();
-                renderizarIssues(issues);
-            } catch (erro) {
-                console.error('Erro ao carregar issues:', erro);
-                document.getElementById('issues-container').innerHTML = `
-                    <div class="erro">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Não foi possível carregar as issues. Verifique o token do GitHub.</p>
-                    </div>
-                `;
-            }
-        }
-
-        function renderizarIssues(issues) {
-            const container = document.getElementById('issues-container');
-            container.innerHTML = '';
-
-            if (issues.length === 0) {
-                container.innerHTML = '<div class="vazio">Nenhuma issue encontrada.</div>';
-                return;
-            }
-
-            issues.forEach(issue => {
-                const data = new Date(issue.created_at).toLocaleDateString('pt-BR');
-                const estado = issue.state === 'open' ? 'aberto' : 'fechado';
-                const iconeEstado = issue.state === 'open' ? 'fa-circle-open' : 'fa-circle-check';
-                
-                const item = document.createElement('div');
-                item.className = 'item-issue';
-                item.innerHTML = `
-                    <div class="info-issue">
-                        <span class="badge estado-${issue.state}">${issue.state === 'open' ? 'Aberto' : 'Fechado'}</span>
-                        <h4>${issue.title}</h4>
-                        <div class="meta-issue">
-                            <span><i class="fas fa-user"></i> ${issue.user.login}</span>
-                            <span><i class="fas fa-calendar"></i> ${data}</span>
-                            <span><i class="fas fa-comments"></i> ${issue.comments}</span>
-                        </div>
-                        <div class="etiquetas-issue">
-                            ${issue.labels.map(l => `<span class="etiqueta">${l.name}</span>`).join('')}
-                        </div>
-                    </div>
-                    <a href="${issue.html_url}" target="_blank" class="btn-link">Abrir no GitHub <i class="fas fa-external-link-alt"></i></a>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        // Carregar workflows
-        async function carregarWorkflows() {
-            try {
-                const resposta = await fetch(`${CONFIG.API_BASE}/actions/workflows`, {
-                    headers: {
-                        'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                
-                if (!resposta.ok) throw new Error('Erro ao carregar workflows');
-                
-                const data = await resposta.json();
-                renderizarWorkflows(data.workflows);
-            } catch (erro) {
-                console.error('Erro ao carregar workflows:', erro);
-            }
-        }
-
-        function renderizarWorkflows(workflows) {
-            // Renderizar workflows se necessário
-        }
-
-        // Carregar estatísticas
-        async function carregarEstatisticas() {
-            try {
-                const [issuesResp, prsResp] = await Promise.all([
-                    fetch(`${CONFIG.API_BASE}/issues?state=all&per_page=100`, {
-                        headers: {
-                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    }),
-                    fetch(`${CONFIG.API_BASE}/pulls?state=all&per_page=100`, {
-                        headers: {
-                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    })
-                ]);
-
-                const issues = await resposta.json();
-                const prs = await prsResp.json();
-
-                document.getElementById('stat-total-tarefas').textContent = issues.length;
-                document.getElementById('stat-concluidas').textContent = issues.filter(i => i.state === 'closed').length;
-                document.getElementById('stat-andamento').textContent = issues.filter(i => i.state === 'open').length;
-                document.getElementById('stat-falhas').textContent = 0; // Pode calcular com base em falhas
-                document.getElementById('stat-prs').textContent = prs.length;
-                document.getElementById('stat-branches').textContent = issues.length; // Aproximação
-            } catch (erro) {
-                console.error('Erro ao carregar estatísticas:', erro);
-            }
-        }
-
-        // Formulário de nova issue
-        function setupFormulario() {
-            const form = document.getElementById('form-nova-issue');
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const titulo = document.getElementById('issue-titulo').value;
-                const modelo = document.getElementById('issue-modelo').value;
-                const tarefasTexto = document.getElementById('issue-tarefas').value;
-                
-                const corpo = `## Tarefas\n${tarefasTexto}\n\n## Modelo\n${modelo}\n\n## Opções\n- [x] Criar PR automático para cada tarefa\n- [x] Usar contexto limpo`;
-                
-                try {
-                    const resposta = await fetch(`${CONFIG.API_BASE}/issues`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `token ${CONFIG.GITHUB_TOKEN || ''}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        },
-                        body: JSON.stringify({
-                            title: titulo,
-                            body: corpo
-                        })
-                    });
-                    
-                    if (resposta.ok) {
-                        mostrarToast('Issue criada com sucesso!');
-                        fecharModal();
-                        form.reset();
-                        carregarDados();
-                    } else {
-                        mostrarToast('Erro ao criar issue', 'error');
-                    }
-                } catch (erro) {
-                    mostrarToast('Erro ao criar issue', 'error');
-                }
-            });
-        }
-
-        // Modal
-        function abrirModalNovaIssue() {
-            document.getElementById('modal-nova-issue').style.display = 'block';
-        }
-
-        function fecharModal() {
-            document.getElementById('modal-nova-issue').style.display = 'none';
-        }
-
-        // Toast
-        function mostrarToast(mensagem, tipo = 'sucesso') {
-            const toast = document.getElementById('toast');
-            const texto = document.getElementById('toast-msg');
-            texto.textContent = mensagem;
-            toast.className = `toast mostrar ${tipo}`;
-            setTimeout(() => {
-                toast.className = 'toast';
-            }, 3000);
-        }
-
-        // Fechar modal ao clicar fora
-        document.getElementById('modal-nova-issue').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('modal-nova-issue')) {
-                fecharModal();
-            }
-        });
-    </script>
+carregarDados();
+</script>
 </body>
 </html>
