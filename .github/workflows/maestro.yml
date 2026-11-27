@@ -1,0 +1,150 @@
+name: 🏛️ MAESTRO - Fazenda de Agentes Autônoma
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      pilar:
+        description: 'Pilar: trading, transcricao, apps, deepseek, todos'
+        required: true
+        default: 'todos'
+      tarefas:
+        description: 'Lista de tarefas (uma por linha)'
+        required: false
+        default: ''
+      modelo:
+        description: 'Modelo LLM'
+        required: false
+        default: 'nvidia/nemotron-3.5-lightning-30b-a3b'
+      paralelismo:
+        description: 'Agentes simultâneos (1-10)'
+        required: false
+        default: '5'
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
+jobs:
+  dispatcher:
+    name: 🧠 Dispatcher Inteligente
+    runs-on: ubuntu-latest
+    outputs:
+      pilar: ${{ steps.rotear.outputs.pilar }}
+      contador: ${{ steps.rotear.outputs.contador }}
+      modelo: ${{ steps.rotear.outputs.modelo }}
+    steps:
+      - name: Extrair dados da issue
+        id: rotear
+        run: |
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          ISSUE_LABELS="${{ github.event.issue.labels }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          
+          PILAR="geral"
+          if echo "$ISSUE_LABELS" | grep -qi "trading"; then PILAR="trading"; fi
+          if echo "$ISSUE_LABELS" | grep -qi "transcricao"; then PILAR="transcricao"; fi
+          if echo "$ISSUE_LABELS" | grep -qi "app"; then PILAR="apps"; fi
+          if echo "$ISSUE_LABELS" | grep -qi "deepseek"; then PILAR="deepseek"; fi
+          if echo "$ISSUE_BODY" | grep -qi "xauusd\|mt5\|trading\|ouro"; then PILAR="trading"; fi
+          if echo "$ISSUE_BODY" | grep -qi "youtube\|transcricao\|ebook\|html"; then PILAR="transcricao"; fi
+          if echo "$ISSUE_BODY" | grep -qi "app\|apk\|android\|musica\|orcamento\|financeiro"; then PILAR="apps"; fi
+          if echo "$ISSUE_BODY" | grep -qi "deepseek\|codigo\|programacao"; then PILAR="deepseek"; fi
+          
+          TAREFAS=$(echo "$ISSUE_BODY" | grep -cE '^[-*] ' || echo 0)
+          MODELO="${{ github.event.inputs.modelo }}"
+          if [ -z "$MODELO" ] || [ "$MODELO" = "" ]; then
+            case "$PILAR" in
+              trading|transcricao|apps) MODELO="nvidia/nemotron-3.5-lightning-30b-a3b" ;;
+              deepseek) MODELO="opencode/deepseek-v4-flash-free" ;;
+              *) MODELO="nvidia/nemotron-3.5-lightning-30b-a3b" ;;
+            esac
+          fi
+          
+          echo "pilar=$PILAR" >> $GITHUB_OUTPUT
+          echo "contador=$TAREFAS" >> $GITHUB_OUTPUT
+          echo "modelo=$MODELO" >> $GITHUB_OUTPUT
+          echo "🎯 Pilar: $PILAR | Tarefas: $TAREFAS | Modelo: $MODELO"
+
+  executores:
+    name: ⚡ Executores Paralelos
+    needs: dispatcher
+    if: needs.dispatcher.outputs.contador > 0
+    runs-on: ubuntu-latest
+    timeout-minutes: 115
+    strategy:
+      max-parallel: ${{ github.event.inputs.paralelismo || 5 }}
+      fail-fast: false
+      matrix:
+        task_index: ${{ fromJson(needs.dispatcher.outputs.tarefas_indices) }}
+    env:
+      TASK_INDEX: ${{ matrix.task_index }}
+      PILAR: ${{ needs.dispatcher.outputs.pilar }}
+      MODELO: ${{ needs.dispatcher.outputs.modelo }}
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent requests
+
+      - name: Extrair tarefa específica
+        id: tarefa
+        run: |
+          TAREFAS="${{ needs.dispatcher.outputs.tarefas }}"
+          INDEX=${{ matrix.task_index }}
+          TAREFA=$(echo "$TAREFAS" | tr '|||' '\n' | sed -n "$((INDEX + 1))p")
+          echo "tarefa=$TAREFA" >> $GITHUB_OUTPUT
+          echo "🚀 Tarefa $INDEX: $TAREFA"
+
+      - name: Executar Agente Maestro
+        run: |
+          python3 .github/scripts/maestro_agent.py
+
+      - name: Commit e Push
+        run: |
+          git add -A
+          git commit -m "feat(agent-${{ matrix.task_index }}): ${{ steps.tarefa.outputs.tarefa }}" || echo "Sem mudanças"
+          git push origin HEAD || true
+
+  resumo:
+    name: 📋 Resumo da Execução
+    needs: [dispatcher, executores]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Comentar na Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.issue.number || 0 }};
+            const tarefas = ${{ needs.dispatcher.outputs.contador || 0 }};
+            const pilar = '${{ needs.dispatcher.outputs.pilar }}';
+            const modelo = '${{ needs.dispatcher.outputs.modelo }}';
+            const status = '${{ needs.executores.result || 'skipped' }}';
+            const body = `✅ **FAZENDA DE AGENTES CONCLUÍDA**\n\nIssue #${issueNumber}\nPilar: ${pilar}\nModelo: ${modelo}\nTarefas: ${tarefas}\nStatus: ${status}\n\n---\n*Executado pelo Maestro - Fazenda de Agentes*\n`;
+            github.rest.issues.createComment({
+              issue_number: issueNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
