@@ -1,0 +1,99 @@
+name: Agent Batch (Fazenda de Agentes OpenCode)
+
+"on":
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: 'Lista de tarefas (uma por linha, começando com - ou *)'
+        required: false
+        default: ''
+      model:
+        description: 'Modelo LLM (default: nvidia/nemotron-3.5-lightning-30b-a3b)'
+        required: false
+        default: 'nvidia/nemotron-3.5-lightning-30b-a3b'
+      parallel:
+        description: 'Número máximo de agentes simultâneos'
+        required: false
+        default: '5'
+      create_prs:
+        description: 'Criar Pull Requests automaticamente'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: agent-batch-${{ github.event.issue.number || github.run_id || github.sha }}
+  cancel-in-progress: false
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  HERMES_API_KEY: ${{ secrets.HERMES_API_KEY }}
+  NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  agent-batch:
+    name: 🚀 Fazenda de Agentes OpenCode
+    runs-on: ubuntu-latest
+    timeout-minutes: 115
+    steps:
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 1. Checkout do repositório
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      - name: 📥 Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 2. Setup do ambiente
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🧰 Instalar Hermes Agent
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent
+          hermes --version
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 3. Execução principal da fazenda de agentes
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      - name: 🚀 Executar fazenda de agentes (paralelo)
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          INPUT_MODEL: ${{ github.event.inputs.model || 'nvidia/nemotron-3.5-lightning-30b-a3b' }}
+          INPUT_PARALLEL: ${{ github.event.inputs.parallel || '5' }}
+          INPUT_CREATE_PRS: ${{ github.event.inputs.create_prs || 'true' }}
+        run: |
+          chmod +x .github/scripts/agent_batch.py
+          python3 .github/scripts/agent_batch.py
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 4. Comentário final na issue
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      - name: 💬 Comentar resumo na issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.issue.number }};
+            const body = `✅ **Fazenda de Agentes Concluída**\n\nProcessadas tarefas na issue #${issueNumber}.\n\nCada tarefa foi executada em uma **VM Linux isolada e descartável** via GitHub Actions.\n\nVerifique a guia "Actions" para ver os detalhes de execução de cada agente, incluindo branches criadas e Pull Requests abertos.\n\n---\n*Modelo: ${{ github.event.inputs.model || 'opencode/deepseek-v4.1-flash-free' }} (custo zero de LLM)*\n*Executor: GitHub Actions - Fazenda de Agentes OpenCode*`;
+            github.rest.issues.createComment({
+              issue_number: issueNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
