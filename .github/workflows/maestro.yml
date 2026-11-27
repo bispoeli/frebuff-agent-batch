@@ -42,6 +42,7 @@ jobs:
       pilar: ${{ steps.rotear.outputs.pilar }}
       contador: ${{ steps.rotear.outputs.contador }}
       modelo: ${{ steps.rotear.outputs.modelo }}
+      tarefas_indices: ${{ steps.rotear.outputs.tarefas_indices }}
     steps:
       - name: Extrair dados da issue
         id: rotear
@@ -70,9 +71,18 @@ jobs:
             esac
           fi
           
+          # Gerar array de índices para matriz
+          INDICES="["
+          for i in $(seq 0 $((TAREFAS - 1))); do
+            if [ $i -gt 0 ]; then INDICES+=","; fi
+            INDICES+="$i"
+          done
+          INDICES+="]"
+          
           echo "pilar=$PILAR" >> $GITHUB_OUTPUT
           echo "contador=$TAREFAS" >> $GITHUB_OUTPUT
           echo "modelo=$MODELO" >> $GITHUB_OUTPUT
+          echo "tarefas_indices=$INDICES" >> $GITHUB_OUTPUT
           echo "🎯 Pilar: $PILAR | Tarefas: $TAREFAS | Modelo: $MODELO"
 
   executores:
@@ -111,12 +121,15 @@ jobs:
         id: tarefa
         run: |
           TAREFAS="${{ needs.dispatcher.outputs.tarefas }}"
-          INDEX=${{ matrix.task_index }}
           TAREFA=$(echo "$TAREFAS" | tr '|||' '\n' | sed -n "$((INDEX + 1))p")
           echo "tarefa=$TAREFA" >> $GITHUB_OUTPUT
           echo "🚀 Tarefa $INDEX: $TAREFA"
 
       - name: Executar Agente Maestro
+        env:
+          TAREFA: ${{ steps.tarefa.outputs.tarefa }}
+          PILAR: ${{ matrix.pilar }}
+          MODELO: ${{ needs.dispatcher.outputs.modelo }}
         run: |
           python3 .github/scripts/maestro_agent.py
 
